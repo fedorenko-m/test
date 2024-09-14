@@ -1,0 +1,42 @@
+name: Add GCP Project as GitHub Environment
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment-name:
+        description: 'Name of the GitHub environment'
+        required: true
+        type: string
+      gcp-project-id:
+        description: 'GCP Project ID'
+        required: true
+        type: string
+
+jobs:
+  setup-environment:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Add GitHub environment
+        uses: peter-evans/create-environment@v1
+        with:
+          name: ${{ github.event.inputs.environment-name }}
+
+      - name: Set GitHub secrets
+        uses: github-script@v6
+        with:
+          script: |
+            const secretNames = ['GCP_PROJECT_ID', 'GCP_SA_KEY'];
+            const secretValues = [${{ github.event.inputs.gcp-project-id }}, process.env.GCP_SA_KEY];
+
+            for (let i = 0; i < secretNames.length; i++) {
+              await github.rest.actions.createOrUpdateRepoSecret({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                secret_name: secretNames[i],
+                encrypted_value: Buffer.from(secretValues[i]).toString('base64'),
+              });
+            }
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
